@@ -7,6 +7,10 @@ Or with gunicorn:
     gunicorn "run:app"
 """
 
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env file if present (useful for Windows and local development)
+
 from app import create_app
 
 app = create_app()

@@ -18,6 +18,9 @@ env/
 instance/
 *.db
 
+# Local environment configuration (copy .env.example to .env to configure)
+.env
+
 # Testing
 .pytest_cache/
 htmlcov/
