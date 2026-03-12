@@ -1,0 +1,23 @@
+{% extends "kiosk/base.html" %}
+
+{% block title %}FS Getränkesystem – Kiosk{% endblock %}
+
+{% block content %}
+<div class="text-center py-4">
+  <i class="bi bi-cup-straw text-primary" style="font-size:5rem;"></i>
+  <h1 class="mt-3 fw-bold">FS Getränkesystem</h1>
+  <p class="lead text-muted">Halte deine RFID-Karte ans Lesegerät.</p>
+
+  <!-- Demo-Formular (wird auf echtem Pi durch RFID-Hardware ersetzt) -->
+  <div class="mt-4 p-3 bg-light rounded-3 border">
+    <p class="text-muted small mb-2"><i class="bi bi-info-circle me-1"></i>Demo-Modus: UID manuell eingeben</p>
+    <form method="post" action="{{ url_for('kiosk.scan') }}" class="d-flex gap-2 justify-content-center">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="text" name="uid" class="form-control" placeholder="RFID UID" style="max-width:220px;" required>
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-wifi me-1"></i>Scannen
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
