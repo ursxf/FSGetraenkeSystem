@@ -2,7 +2,7 @@
 
 import pytest
 from app import create_app, db as _db
-from app.models import User, Drink, Transaction, AdminUser
+from app.models import User, Drink, Transaction, AdminUser, RFIDTag
 from werkzeug.security import generate_password_hash
 
 
@@ -66,8 +66,11 @@ def auth_client(client, app):
 
 @pytest.fixture()
 def sample_user(db):
-    user = User(name="Max Mustermann", rfid_uid="RFID001", balance_cents=500)
+    user = User(name="Max Mustermann", balance_cents=500)
     db.session.add(user)
+    db.session.flush()
+    tag = RFIDTag(uid="RFID001", user_id=user.id)
+    db.session.add(tag)
     db.session.commit()
     return user
 

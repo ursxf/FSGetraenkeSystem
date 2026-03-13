@@ -21,14 +21,24 @@
           <div class="text-danger small">{{ error }}</div>
         {% endfor %}
       </div>
+      {% if is_new %}
       <div class="mb-3">
         {{ form.rfid_uid.label(class="form-label") }}
         {{ form.rfid_uid(class="form-control", placeholder="z.B. 12345678") }}
-        <div class="form-text">Wird beim Einscannen der RFID-Karte automatisch ausgefüllt.</div>
+        <div class="form-text">Optional – weitere Tags können nach dem Erstellen hinzugefügt werden.</div>
         {% for error in form.rfid_uid.errors %}
           <div class="text-danger small">{{ error }}</div>
         {% endfor %}
       </div>
+      <div class="mb-3">
+        {{ form.initial_balance_cents.label(class="form-label") }}
+        {{ form.initial_balance_cents(class="form-control", placeholder="0") }}
+        <div class="form-text">Startguthaben in Cent (z.B. 500 = 5,00 €). Negative Werte erlaubt.</div>
+        {% for error in form.initial_balance_cents.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="mb-3 form-check">
         {{ form.active(class="form-check-input") }}
         {{ form.active.label(class="form-check-label") }}

@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 from flask import render_template, redirect, url_for, flash, request, session, jsonify
 
 from app import db
-from app.models import User, Drink, Transaction
+from app.models import User, Drink, Transaction, RFIDTag, UnknownScan
 from app.kiosk import kiosk_bp
 
 
@@ -19,13 +20,24 @@ def scan():
         flash("Keine RFID-UID empfangen.", "danger")
         return redirect(url_for("kiosk.index"))
 
-    user = User.query.filter_by(rfid_uid=uid, active=True).first()
-    if not user:
-        flash("Karte nicht erkannt. Bitte wende dich an einen Administrator.", "warning")
+    tag = RFIDTag.query.filter_by(uid=uid).first()
+    if tag:
+        user = tag.user
+        if user.active:
+            session["kiosk_user_id"] = user.id
+            return redirect(url_for("kiosk.select_drink"))
+        flash("Konto ist inaktiv. Bitte wende dich an einen Administrator.", "warning")
         return redirect(url_for("kiosk.index"))
 
-    session["kiosk_user_id"] = user.id
-    return redirect(url_for("kiosk.select_drink"))
+    # Tag not assigned – record so admins can see and act on it
+    existing = UnknownScan.query.filter_by(uid=uid).first()
+    if existing:
+        existing.last_seen_at = datetime.now(timezone.utc)
+    else:
+        db.session.add(UnknownScan(uid=uid))
+    db.session.commit()
+    flash("Karte nicht erkannt. Bitte wende dich an einen Administrator.", "warning")
+    return redirect(url_for("kiosk.index"))
 
 
 @kiosk_bp.route("/select")
@@ -92,10 +104,11 @@ def api_identify():
     if not uid:
         return jsonify({"error": "uid required"}), 400
 
-    user = User.query.filter_by(rfid_uid=uid, active=True).first()
-    if not user:
+    tag = RFIDTag.query.filter_by(uid=uid).first()
+    if not tag or not tag.user.active:
         return jsonify({"error": "not_found"}), 404
 
+    user = tag.user
     session["kiosk_user_id"] = user.id
     return jsonify(
         {

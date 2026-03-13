@@ -32,6 +32,12 @@
           <i class="bi bi-clock-history"></i> Transaktionen
         </a>
       </li>
+      <li class="nav-item mb-1">
+        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.admin_user') %}active{% endif %}"
+           href="{{ url_for('admin.admin_users') }}">
+          <i class="bi bi-shield-lock"></i> Admins
+        </a>
+      </li>
     </ul>
     <div class="mt-auto pt-3 border-top border-secondary">
       <a class="nav-link text-white-50" href="{{ url_for('kiosk.index') }}" target="_blank">

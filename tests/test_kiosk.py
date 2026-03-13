@@ -1,7 +1,7 @@
 """Tests for kiosk routes."""
 
 import pytest
-from app.models import User, Drink, Transaction
+from app.models import User, Drink, Transaction, RFIDTag
 from app import db as _db
 
 
@@ -21,17 +21,20 @@ def test_scan_empty_uid(client):
     assert b"keine" in response.data.lower() or response.status_code in (200, 302)
 
 
-def test_scan_known_user_redirects_to_select(client, sample_user):
-    response = client.post(
-        "/scan", data={"uid": sample_user.rfid_uid}, follow_redirects=False
-    )
+def test_scan_known_user_redirects_to_select(client, sample_user, app):
+    with app.app_context():
+        tag = RFIDTag.query.filter_by(user_id=sample_user.id).first()
+        uid = tag.uid
+    response = client.post("/scan", data={"uid": uid}, follow_redirects=False)
     assert response.status_code == 302
     assert "/select" in response.headers["Location"]
 
 
-def test_select_drink_shows_drinks(client, sample_user, sample_drink):
-    # Log in via RFID scan
-    client.post("/scan", data={"uid": sample_user.rfid_uid})
+def test_select_drink_shows_drinks(client, sample_user, sample_drink, app):
+    with app.app_context():
+        tag = RFIDTag.query.filter_by(user_id=sample_user.id).first()
+        uid = tag.uid
+    client.post("/scan", data={"uid": uid})
     response = client.get("/select")
     assert response.status_code == 200
     assert sample_drink.name.encode() in response.data
@@ -44,7 +47,10 @@ def test_select_without_session_redirects(client):
 
 def test_purchase_deducts_balance(client, sample_user, sample_drink, app):
     prev_balance = sample_user.balance_cents
-    client.post("/scan", data={"uid": sample_user.rfid_uid})
+    with app.app_context():
+        tag = RFIDTag.query.filter_by(user_id=sample_user.id).first()
+        uid = tag.uid
+    client.post("/scan", data={"uid": uid})
     response = client.post(f"/purchase/{sample_drink.id}", follow_redirects=True)
     assert response.status_code == 200
     assert sample_drink.name.encode() in response.data
@@ -59,8 +65,11 @@ def test_purchase_deducts_balance(client, sample_user, sample_drink, app):
         assert tx.amount_cents == -sample_drink.price_cents
 
 
-def test_cancel_clears_session(client, sample_user):
-    client.post("/scan", data={"uid": sample_user.rfid_uid})
+def test_cancel_clears_session(client, sample_user, app):
+    with app.app_context():
+        tag = RFIDTag.query.filter_by(user_id=sample_user.id).first()
+        uid = tag.uid
+    client.post("/scan", data={"uid": uid})
     response = client.get("/cancel", follow_redirects=False)
     assert response.status_code == 302
     # Accessing select should redirect back to index
@@ -68,11 +77,11 @@ def test_cancel_clears_session(client, sample_user):
     assert response.status_code == 302
 
 
-def test_api_identify_success(client, sample_user):
-    response = client.post(
-        "/api/identify",
-        json={"uid": sample_user.rfid_uid},
-    )
+def test_api_identify_success(client, sample_user, app):
+    with app.app_context():
+        tag = RFIDTag.query.filter_by(user_id=sample_user.id).first()
+        uid = tag.uid
+    response = client.post("/api/identify", json={"uid": uid})
     assert response.status_code == 200
     data = response.get_json()
     assert data["name"] == sample_user.name
@@ -87,3 +96,11 @@ def test_api_identify_not_found(client):
 def test_api_identify_missing_uid(client):
     response = client.post("/api/identify", json={})
     assert response.status_code == 400
+
+
+def test_scan_unknown_uid_recorded(client, app):
+    """Unknown scans should be recorded in the UnknownScan table."""
+    from app.models import UnknownScan
+    client.post("/scan", data={"uid": "BRAND_NEW_TAG"}, follow_redirects=True)
+    with app.app_context():
+        assert UnknownScan.query.filter_by(uid="BRAND_NEW_TAG").first() is not None
