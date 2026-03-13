@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from flask import render_template, redirect, url_for, flash, request, session, jsonify
+from sqlalchemy import func
 
 from app import db
 from app.models import User, Drink, Transaction, RFIDTag, UnknownScan
@@ -52,7 +53,25 @@ def select_drink():
         session.pop("kiosk_user_id", None)
         return redirect(url_for("kiosk.index"))
 
-    drinks = Drink.query.filter_by(active=True).order_by(Drink.name).all()
+    purchase_counts = (
+        db.session.query(
+            Transaction.drink_id,
+            func.count(Transaction.id).label("count"),
+        )
+        .filter(
+            Transaction.user_id == user_id,
+            Transaction.type == Transaction.PURCHASE,
+        )
+        .group_by(Transaction.drink_id)
+        .subquery()
+    )
+    drinks = (
+        db.session.query(Drink)
+        .outerjoin(purchase_counts, Drink.id == purchase_counts.c.drink_id)
+        .filter(Drink.active.is_(True))
+        .order_by(purchase_counts.c.count.desc().nullslast(), Drink.name)
+        .all()
+    )
     return render_template("kiosk/select_drink.html", user=user, drinks=drinks)
 
 

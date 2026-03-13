@@ -276,3 +276,72 @@ def test_delete_last_admin_rejected(auth_client, app):
         count = AdminUser.query.count()
         assert count >= 1  # sanity check
 
+
+# ---------------------------------------------------------------------------
+# Admin password change
+# ---------------------------------------------------------------------------
+
+
+def test_change_password_page_loads(auth_client):
+    response = auth_client.get("/admin/admins/change-password")
+    assert response.status_code == 200
+    assert "Passwort".encode() in response.data
+
+
+def test_change_password_success(auth_client, app):
+    response = auth_client.post(
+        "/admin/admins/change-password",
+        data={
+            "current_password": "testpass",
+            "new_password": "newpass123",
+            "confirm_password": "newpass123",
+        },
+        follow_redirects=True,
+    )
+    assert "erfolgreich".encode() in response.data
+    # Verify the new password works
+    with app.app_context():
+        from werkzeug.security import check_password_hash
+        admin = AdminUser.query.filter_by(username="testadmin").first()
+        assert check_password_hash(admin.password_hash, "newpass123")
+
+
+def test_change_password_wrong_current(auth_client):
+    response = auth_client.post(
+        "/admin/admins/change-password",
+        data={
+            "current_password": "wrongpass",
+            "new_password": "newpass123",
+            "confirm_password": "newpass123",
+        },
+        follow_redirects=True,
+    )
+    assert "falsch".encode() in response.data
+
+
+def test_change_password_mismatch(auth_client):
+    response = auth_client.post(
+        "/admin/admins/change-password",
+        data={
+            "current_password": "testpass",
+            "new_password": "newpass123",
+            "confirm_password": "differentpass",
+        },
+        follow_redirects=True,
+    )
+    assert "stimmen nicht".encode() in response.data
+
+
+def test_change_password_too_short(auth_client):
+    response = auth_client.post(
+        "/admin/admins/change-password",
+        data={
+            "current_password": "testpass",
+            "new_password": "short",
+            "confirm_password": "short",
+        },
+        follow_redirects=True,
+    )
+    # Should fail form validation (min 8 chars)
+    assert "erfolgreich".encode() not in response.data
+
