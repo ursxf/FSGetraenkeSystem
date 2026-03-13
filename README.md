@@ -42,7 +42,7 @@ Alternativ kann der erste Admin auch über Umgebungsvariablen konfiguriert werde
 | `SECRET_KEY` | `change-me-in-production` | Flask Secret Key |
 | `DATABASE_URL` | `sqlite:///getraenke.db` | Datenbank-URL |
 | `ADMIN_USERNAME` | `admin` | Benutzername des initialen Admins |
-| `ADMIN_PASSWORD` | `admin` | Passwort des initialen Admins |
+| `ADMIN_PASSWORD` | wird in der Konsole angezeigt | Passwort des initialen Admins |
 | `RFID_ENABLED` | `false` | `true` für echte RC522-Hardware |
 
 ## Tests
