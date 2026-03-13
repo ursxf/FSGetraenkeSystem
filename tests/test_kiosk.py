@@ -104,3 +104,39 @@ def test_scan_unknown_uid_recorded(client, app):
     client.post("/scan", data={"uid": "BRAND_NEW_TAG"}, follow_redirects=True)
     with app.app_context():
         assert UnknownScan.query.filter_by(uid="BRAND_NEW_TAG").first() is not None
+
+
+def test_drinks_sorted_by_user_habit(client, sample_user, app):
+    """Most-purchased drinks should appear first for a user."""
+    with app.app_context():
+        drink_a = Drink(name="Apfelsaft", price_cents=100, active=True)
+        drink_b = Drink(name="Bionade", price_cents=150, active=True)
+        drink_c = Drink(name="Cola", price_cents=120, active=True)
+        _db.session.add_all([drink_a, drink_b, drink_c])
+        _db.session.flush()
+        # User has bought Bionade 3 times, Cola once, Apfelsaft never
+        for _ in range(3):
+            tx = Transaction(
+                user_id=sample_user.id,
+                drink_id=drink_b.id,
+                amount_cents=-drink_b.price_cents,
+                type=Transaction.PURCHASE,
+            )
+            _db.session.add(tx)
+        tx2 = Transaction(
+            user_id=sample_user.id,
+            drink_id=drink_c.id,
+            amount_cents=-drink_c.price_cents,
+            type=Transaction.PURCHASE,
+        )
+        _db.session.add(tx2)
+        _db.session.commit()
+        tag = RFIDTag.query.filter_by(user_id=sample_user.id).first()
+        uid = tag.uid
+
+    client.post("/scan", data={"uid": uid})
+    response = client.get("/select")
+    assert response.status_code == 200
+    content = response.data.decode()
+    # Bionade (3 purchases) should come before Cola (1) which comes before Apfelsaft (0)
+    assert content.index("Bionade") < content.index("Cola") < content.index("Apfelsaft")

@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, IntegerField, BooleanField, SubmitField
-from wtforms.validators import DataRequired, Length, NumberRange, Optional
+from wtforms.validators import DataRequired, Length, NumberRange, Optional, EqualTo
 
 
 class LoginForm(FlaskForm):
@@ -44,3 +44,13 @@ class AdminUserForm(FlaskForm):
     username = StringField("Benutzername", validators=[DataRequired(), Length(max=64)])
     password = PasswordField("Passwort", validators=[DataRequired(), Length(min=8)])
     submit = SubmitField("Admin erstellen")
+
+
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField("Aktuelles Passwort", validators=[DataRequired()])
+    new_password = PasswordField("Neues Passwort", validators=[DataRequired(), Length(min=8)])
+    confirm_password = PasswordField(
+        "Neues Passwort bestätigen",
+        validators=[DataRequired(), EqualTo("new_password", message="Die neuen Passwörter stimmen nicht überein.")],
+    )
+    submit = SubmitField("Passwort ändern")

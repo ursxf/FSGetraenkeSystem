@@ -5,7 +5,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app import db, login_manager
 from app.models import AdminUser, User, Drink, Transaction, RFIDTag, UnknownScan
 from app.admin import admin_bp
-from app.admin.forms import LoginForm, UserForm, DrinkForm, DepositForm, AdminUserForm
+from app.admin.forms import LoginForm, UserForm, DrinkForm, DepositForm, AdminUserForm, ChangePasswordForm
 
 
 @login_manager.user_loader
@@ -345,6 +345,21 @@ def admin_user_new():
         flash(f"Admin '{admin.username}' wurde erstellt.", "success")
         return redirect(url_for("admin.admin_users"))
     return render_template("admin/admin_user_form.html", form=form)
+
+
+@admin_bp.route("/admins/change-password", methods=["GET", "POST"])
+@login_required
+def admin_change_password():
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        if not check_password_hash(current_user.password_hash, form.current_password.data):
+            flash("Das aktuelle Passwort ist falsch.", "danger")
+            return render_template("admin/change_password.html", form=form)
+        current_user.password_hash = generate_password_hash(form.new_password.data)
+        db.session.commit()
+        flash("Passwort wurde erfolgreich geändert.", "success")
+        return redirect(url_for("admin.admin_users"))
+    return render_template("admin/change_password.html", form=form)
 
 
 @admin_bp.route("/admins/<int:admin_id>/delete", methods=["POST"])

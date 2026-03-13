@@ -29,7 +29,11 @@
             {% endif %}
           </td>
           <td class="text-end">
-            {% if admin.id != current_user.id %}
+            {% if admin.id == current_user.id %}
+            <a href="{{ url_for('admin.admin_change_password') }}" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-key"></i> Passwort ändern
+            </a>
+            {% else %}
             <form method="post" action="{{ url_for('admin.admin_user_delete', admin_id=admin.id) }}"
                   onsubmit="return confirm('Admin \'{{ admin.username }}\' wirklich löschen?');">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
