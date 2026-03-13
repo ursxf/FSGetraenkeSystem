@@ -28,10 +28,33 @@
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-body">
-        <div class="text-muted small mb-1">RFID UID</div>
-        <code>{{ user.rfid_uid or '–' }}</code>
+        <div class="text-muted small mb-2">RFID Tags</div>
+        {% if user.rfid_tags %}
+          {% for tag in user.rfid_tags %}
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <code class="small">{{ tag.uid }}</code>
+            <form method="post" action="{{ url_for('admin.user_tag_remove', user_id=user.id, tag_id=tag.id) }}"
+                  class="ms-2" onsubmit="return confirm('Tag entfernen?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1">
+                <i class="bi bi-x"></i>
+              </button>
+            </form>
+          </div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted small">Noch keine Tags.</span>
+        {% endif %}
+        <hr class="my-2">
+        <form method="post" action="{{ url_for('admin.user_tag_add', user_id=user.id) }}" class="d-flex gap-1">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="uid" class="form-control form-control-sm" placeholder="Neue UID" maxlength="64" required>
+          <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">
+            <i class="bi bi-plus"></i> Hinzufügen
+          </button>
+        </form>
       </div>
     </div>
   </div>

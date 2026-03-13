@@ -23,7 +23,6 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False)
-    rfid_uid = db.Column(db.String(64), unique=True, nullable=True)
     # Balance stored in euro-cents (integer) to avoid floating-point issues.
     balance_cents = db.Column(db.Integer, nullable=False, default=0)
     active = db.Column(db.Boolean, nullable=False, default=True)
@@ -33,6 +32,9 @@ class User(db.Model):
 
     transactions = db.relationship(
         "Transaction", back_populates="user", lazy="dynamic"
+    )
+    rfid_tags = db.relationship(
+        "RFIDTag", back_populates="user", cascade="all, delete-orphan"
     )
 
     @property
@@ -98,3 +100,36 @@ class Transaction(db.Model):
 
     def __repr__(self):
         return f"<Transaction {self.type} {self.amount_euro:.2f} € for user {self.user_id}>"
+
+
+class RFIDTag(db.Model):
+    """An RFID tag/card assigned to a user account."""
+
+    __tablename__ = "rfid_tags"
+
+    id = db.Column(db.Integer, primary_key=True)
+    uid = db.Column(db.String(64), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+    user = db.relationship("User", back_populates="rfid_tags")
+
+    def __repr__(self):
+        return f"<RFIDTag {self.uid} -> user {self.user_id}>"
+
+
+class UnknownScan(db.Model):
+    """Records an RFID scan of a tag that is not yet assigned to any account."""
+
+    __tablename__ = "unknown_scans"
+
+    id = db.Column(db.Integer, primary_key=True)
+    uid = db.Column(db.String(64), unique=True, nullable=False)
+    last_seen_at = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+    def __repr__(self):
+        return f"<UnknownScan {self.uid}>"
