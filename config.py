@@ -4,8 +4,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_WEAK_SECRET = "change-me-in-production"
-
 
 def _get_secret_key() -> str:
     key = os.environ.get("SECRET_KEY")
@@ -23,13 +21,65 @@ def _get_secret_key() -> str:
 
 
 class Config:
+    # -------------------------------------------------------------------------
+    # Flask / Security
+    # -------------------------------------------------------------------------
     SECRET_KEY: str = _get_secret_key()
+
+    # -------------------------------------------------------------------------
+    # Database
+    # -------------------------------------------------------------------------
     SQLALCHEMY_DATABASE_URI: str = os.environ.get(
         "DATABASE_URL", "sqlite:///getraenke.db"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
-    # Admin credentials (override via environment variables in production)
+
+    # -------------------------------------------------------------------------
+    # Admin credentials
+    # Only used on first start to seed the built-in admin account.
+    # Override via environment variables; if ADMIN_PASSWORD is left empty, a
+    # random one-time password is printed to the console on first start.
+    # -------------------------------------------------------------------------
     ADMIN_USERNAME: str = os.environ.get("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD: str = os.environ.get("ADMIN_PASSWORD", "")
-    # RFID: set to True to use real hardware, False for demo/simulation mode
+
+    # -------------------------------------------------------------------------
+    # RFID / Demo mode
+    #
+    # RFID_ENABLED=false  →  Demo-Modus (Standard)
+    #   • Kein Hardware-Lesegerät erforderlich
+    #   • Im Kiosk-Formular kann eine beliebige UID manuell eingegeben werden
+    #   • Optional: RFID_DEMO_UID setzen, damit das Kiosk automatisch eine
+    #     fest hinterlegte UID verwendet (nützlich für Tests / Vorführungen)
+    #
+    # RFID_ENABLED=true   →  Produktiv-Modus
+    #   • Liest echte Karten vom RC522-Lesegerät (Raspberry Pi)
+    #   • RFID_DEMO_UID wird in diesem Modus ignoriert
+    # -------------------------------------------------------------------------
     RFID_ENABLED: bool = os.environ.get("RFID_ENABLED", "false").lower() == "true"
+    # UID, die im Demo-Modus automatisch verwendet wird (leer = manuelle Eingabe)
+    RFID_DEMO_UID: str = os.environ.get("RFID_DEMO_UID", "")
+
+
+def log_startup_mode() -> None:
+    """Log whether the application is running in demo or production mode.
+
+    Call this once after the app is created so the operator can see at a
+    glance which mode is active.
+    """
+    if Config.RFID_ENABLED:
+        logger.info(
+            "RFID-Modus: PRODUKTIV – echtes RC522-Lesegerät wird verwendet."
+        )
+    else:
+        if Config.RFID_DEMO_UID:
+            logger.info(
+                "RFID-Modus: DEMO – feste Demo-UID '%s' wird verwendet "
+                "(kein Lesegerät erforderlich).",
+                Config.RFID_DEMO_UID,
+            )
+        else:
+            logger.info(
+                "RFID-Modus: DEMO – manuelle UID-Eingabe im Kiosk-Formular "
+                "(kein Lesegerät erforderlich)."
+            )
