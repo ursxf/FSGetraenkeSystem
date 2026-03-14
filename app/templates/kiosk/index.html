@@ -8,6 +8,24 @@
   <h1 class="mt-3 fw-bold">FS Getränkesystem</h1>
   <p class="lead text-muted">Halte deine RFID-Karte ans Lesegerät.</p>
 
+  {% if rfid_enabled %}
+  <!-- Produktiv-Modus: Warten auf Hardware-Scan -->
+  <div class="mt-4 p-3 bg-light rounded-3 border">
+    <p class="text-muted mb-2">
+      <i class="bi bi-wifi me-1"></i>Bitte Karte ans Lesegerät halten…
+    </p>
+    <div class="spinner-border text-primary mt-2" role="status">
+      <span class="visually-hidden">Warte auf Scan…</span>
+    </div>
+  </div>
+
+  <!-- Verstecktes Formular zum Absenden der gescannten UID -->
+  <form id="rfid-form" method="post" action="{{ url_for('kiosk.scan') }}" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="uid" id="rfid-uid" value="">
+  </form>
+
+  {% else %}
   <!-- Demo-Formular (wird auf echtem Pi durch RFID-Hardware ersetzt) -->
   <div class="mt-4 p-3 bg-light rounded-3 border">
     <p class="text-muted small mb-2"><i class="bi bi-info-circle me-1"></i>Demo-Modus: UID manuell eingeben</p>
@@ -19,5 +37,31 @@
       </button>
     </form>
   </div>
+  {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if rfid_enabled %}
+<script>
+  (function () {
+    function pollRfid() {
+      fetch("{{ url_for('kiosk.api_last_scan') }}")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.uid) {
+            document.getElementById("rfid-uid").value = data.uid;
+            document.getElementById("rfid-form").submit();
+          } else {
+            setTimeout(pollRfid, 1000);
+          }
+        })
+        .catch(function () {
+          setTimeout(pollRfid, 2000);
+        });
+    }
+    pollRfid();
+  })();
+</script>
+{% endif %}
 {% endblock %}

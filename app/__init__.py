@@ -29,6 +29,10 @@ def create_app(config_object="config.Config"):
         db.create_all()
         _seed_admin(app)
 
+    from app.rfid import start_background_reader
+
+    start_background_reader()
+
     return app
 
 
