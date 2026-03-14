@@ -1,11 +1,12 @@
+import json
 from datetime import datetime, timezone
-from flask import render_template, redirect, url_for, flash, request, session, jsonify, current_app
+from flask import render_template, redirect, url_for, flash, request, session, jsonify, current_app, Response, stream_with_context
 from sqlalchemy import func
 
 from app import db
 from app.models import User, Drink, Transaction, RFIDTag, UnknownScan
 from app.kiosk import kiosk_bp
-from app.rfid import get_last_scan
+from app.rfid import get_last_scan, enable_scanning, disable_scanning, wait_for_scan
 
 
 @kiosk_bp.route("/")
@@ -22,6 +23,9 @@ def scan():
     if not uid:
         flash("Keine RFID-UID empfangen.", "danger")
         return redirect(url_for("kiosk.index"))
+
+    # Stop the scanner so any card held during the order process is ignored.
+    disable_scanning()
 
     tag = RFIDTag.query.filter_by(uid=uid).first()
     if tag:
@@ -109,6 +113,7 @@ def purchase(drink_id):
 def cancel():
     """Cancel the current session and return to the start screen."""
     session.pop("kiosk_user_id", None)
+    disable_scanning()
     return redirect(url_for("kiosk.index"))
 
 
@@ -128,6 +133,45 @@ def api_last_scan():
     """
     uid = get_last_scan()
     return jsonify({"uid": uid})
+
+
+@kiosk_bp.route("/api/scan_stream")
+def api_scan_stream():
+    """SSE endpoint: pushes the next RFID scan to the kiosk browser.
+
+    The browser opens this endpoint via ``EventSource`` while the index
+    screen is visible.  The server enables the RFID scanner on connect,
+    holds the connection open with periodic keepalive comments, and sends
+    exactly one ``data:`` event when a card is scanned.  On disconnect the
+    scanner is disabled again so cards tapped during order processing are
+    silently ignored and cannot trigger a second order.
+
+    Replaces the old ``/api/last_scan`` polling mechanism – one persistent
+    connection instead of one request per second.
+    """
+
+    def _generate():
+        enable_scanning()
+        try:
+            while True:
+                uid = wait_for_scan(timeout=15.0)
+                if uid:
+                    yield f"data: {json.dumps({'uid': uid})}\n\n"
+                    return
+                # Keepalive comment keeps the connection alive through proxies
+                # and load balancers that would otherwise close idle streams.
+                yield ": keepalive\n\n"
+        finally:
+            disable_scanning()
+
+    return Response(
+        stream_with_context(_generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @kiosk_bp.route("/api/identify", methods=["POST"])

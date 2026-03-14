@@ -45,22 +45,16 @@
 {% if rfid_enabled %}
 <script>
   (function () {
-    function pollRfid() {
-      fetch("{{ url_for('kiosk.api_last_scan') }}")
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (data.uid) {
-            document.getElementById("rfid-uid").value = data.uid;
-            document.getElementById("rfid-form").submit();
-          } else {
-            setTimeout(pollRfid, 1000);
-          }
-        })
-        .catch(function () {
-          setTimeout(pollRfid, 2000);
-        });
-    }
-    pollRfid();
+    var source = new EventSource("{{ url_for('kiosk.api_scan_stream') }}");
+    source.onmessage = function (event) {
+      var data = JSON.parse(event.data);
+      if (data.uid) {
+        source.close();
+        document.getElementById("rfid-uid").value = data.uid;
+        document.getElementById("rfid-form").submit();
+      }
+    };
+    // EventSource reconnects automatically on errors; no manual retry needed.
   })();
 </script>
 {% endif %}
