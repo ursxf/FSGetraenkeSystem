@@ -21,9 +21,7 @@ def test_kiosk_index_demo_mode_shows_form(client):
 
 
 def test_kiosk_index_rfid_mode_hides_form(app):
-    """In hardware mode (RFID_ENABLED=True) the demo form is hidden and
-    the EventSource-based scan subscriber is rendered instead of the old
-    polling loop."""
+    """In hardware mode (RFID_ENABLED=True) the demo form is hidden."""
     app.config["RFID_ENABLED"] = True
     try:
         client = app.test_client()
@@ -31,7 +29,7 @@ def test_kiosk_index_rfid_mode_hides_form(app):
         assert response.status_code == 200
         assert b"Demo-Modus" not in response.data
         assert b"Bitte Karte ans" in response.data
-        assert b"EventSource" in response.data
+        assert b"pollRfid" in response.data
     finally:
         app.config["RFID_ENABLED"] = False
 
@@ -181,65 +179,3 @@ def test_api_last_scan_with_scan(client):
         response = client.get("/api/last_scan")
     assert response.status_code == 200
     assert response.get_json() == {"uid": "DEADBEEF"}
-
-
-def test_scan_disables_scanning(client, sample_user, app):
-    """Posting to /scan disables the RFID scanner so cards held during
-    order processing do not queue up a second order."""
-    import app.rfid as rfid_module
-
-    # Start from a known enabled state so the assertion is meaningful.
-    rfid_module.enable_scanning()
-    with app.app_context():
-        tag = RFIDTag.query.filter_by(user_id=sample_user.id).first()
-        uid = tag.uid
-    client.post("/scan", data={"uid": uid})
-    assert not rfid_module._scanning_active
-
-
-def test_cancel_disables_scanning(client, app):
-    """Cancelling the session disables the RFID scanner."""
-    import app.rfid as rfid_module
-
-    # Start from a known enabled state so the assertion is meaningful.
-    rfid_module.enable_scanning()
-    client.get("/cancel")
-    assert not rfid_module._scanning_active
-
-
-def test_api_scan_stream_delivers_uid(app):
-    """The SSE endpoint streams the scanned UID as a data event."""
-    with patch("app.kiosk.routes.enable_scanning"), \
-         patch("app.kiosk.routes.disable_scanning"), \
-         patch("app.kiosk.routes.wait_for_scan", return_value="CAFEBABE"):
-        client = app.test_client()
-        response = client.get("/api/scan_stream")
-        # Read body inside the patch context in case the streaming generator
-        # is consumed lazily (avoids the real wait_for_scan being called).
-        body = response.data
-    assert response.status_code == 200
-    assert response.content_type.startswith("text/event-stream")
-    assert b'"uid": "CAFEBABE"' in body
-
-
-def test_api_scan_stream_keepalive_then_uid(app):
-    """The SSE endpoint sends keepalive comments while waiting, then the UID."""
-    call_count = 0
-
-    def _wait_side_effect(timeout=30.0):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            return None  # first call → keepalive
-        return "BEEFDEAD"  # second call → scan found
-
-    with patch("app.kiosk.routes.enable_scanning"), \
-         patch("app.kiosk.routes.disable_scanning"), \
-         patch("app.kiosk.routes.wait_for_scan", side_effect=_wait_side_effect):
-        client = app.test_client()
-        response = client.get("/api/scan_stream")
-        # Read response.data inside the patch context so that the streaming
-        # generator still sees the mocked wait_for_scan on every iteration.
-        body = response.data
-    assert b": keepalive" in body
-    assert b'"uid": "BEEFDEAD"' in body
