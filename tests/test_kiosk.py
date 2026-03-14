@@ -1,6 +1,7 @@
 """Tests for kiosk routes."""
 
 import pytest
+from unittest.mock import patch
 from app.models import User, Drink, Transaction, RFIDTag
 from app import db as _db
 
@@ -9,6 +10,28 @@ def test_kiosk_index_loads(client):
     response = client.get("/")
     assert response.status_code == 200
     assert b"RFID" in response.data
+
+
+def test_kiosk_index_demo_mode_shows_form(client):
+    """In demo mode (RFID_ENABLED=False) the manual UID input form is visible."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b"Demo-Modus" in response.data
+    assert b'name="uid"' in response.data
+
+
+def test_kiosk_index_rfid_mode_hides_form(app):
+    """In hardware mode (RFID_ENABLED=True) the demo form is hidden."""
+    app.config["RFID_ENABLED"] = True
+    try:
+        client = app.test_client()
+        response = client.get("/")
+        assert response.status_code == 200
+        assert b"Demo-Modus" not in response.data
+        assert b"Bitte Karte ans" in response.data
+        assert b"pollRfid" in response.data
+    finally:
+        app.config["RFID_ENABLED"] = False
 
 
 def test_scan_unknown_uid(client):
@@ -140,3 +163,19 @@ def test_drinks_sorted_by_user_habit(client, sample_user, app):
     content = response.data.decode()
     # Bionade (3 purchases) should come before Cola (1) which comes before Apfelsaft (0)
     assert content.index("Bionade") < content.index("Cola") < content.index("Apfelsaft")
+
+
+def test_api_last_scan_no_scan(client):
+    """Without any scan the endpoint returns uid=null."""
+    with patch("app.kiosk.routes.get_last_scan", return_value=None):
+        response = client.get("/api/last_scan")
+    assert response.status_code == 200
+    assert response.get_json() == {"uid": None}
+
+
+def test_api_last_scan_with_scan(client):
+    """When a scan is available the endpoint returns the UID and clears it."""
+    with patch("app.kiosk.routes.get_last_scan", return_value="DEADBEEF"):
+        response = client.get("/api/last_scan")
+    assert response.status_code == 200
+    assert response.get_json() == {"uid": "DEADBEEF"}

@@ -1,16 +1,18 @@
 from datetime import datetime, timezone
-from flask import render_template, redirect, url_for, flash, request, session, jsonify
+from flask import render_template, redirect, url_for, flash, request, session, jsonify, current_app
 from sqlalchemy import func
 
 from app import db
 from app.models import User, Drink, Transaction, RFIDTag, UnknownScan
 from app.kiosk import kiosk_bp
+from app.rfid import get_last_scan
 
 
 @kiosk_bp.route("/")
 def index():
     """Kiosk start screen: waiting for RFID scan."""
-    return render_template("kiosk/index.html")
+    rfid_enabled = current_app.config.get("RFID_ENABLED", False)
+    return render_template("kiosk/index.html", rfid_enabled=rfid_enabled)
 
 
 @kiosk_bp.route("/scan", methods=["POST"])
@@ -113,6 +115,19 @@ def cancel():
 # ---------------------------------------------------------------------------
 # JSON API – used by RFID background polling (optional hardware integration)
 # ---------------------------------------------------------------------------
+
+
+@kiosk_bp.route("/api/last_scan")
+def api_last_scan():
+    """Return and clear the most recently scanned RFID UID.
+
+    The kiosk frontend polls this endpoint when running in hardware mode
+    (``RFID_ENABLED=true``) to detect new card scans without a page reload.
+    Returns ``{"uid": "<UID>"}`` when a fresh scan is available, or
+    ``{"uid": null}`` when nothing new has been scanned.
+    """
+    uid = get_last_scan()
+    return jsonify({"uid": uid})
 
 
 @kiosk_bp.route("/api/identify", methods=["POST"])
