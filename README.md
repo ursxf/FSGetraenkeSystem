@@ -209,38 +209,75 @@ Kopiere sie nach `.env` und passe die Werte an, oder setze die Variablen direkt 
 
 ## 8. Raspberry Pi Setup
 
-### Voraussetzungen
+> 📖 **Vollständige Anleitung:** [`docs/raspberry-pi-setup.md`](docs/raspberry-pi-setup.md) enthält alle Details inklusive OS-Installation, Verdrahtungsplan, systemd-Dienst und Fehlersuche.
 
-- Raspberry Pi (beliebiges Modell mit SPI)
-- RC522 RFID-Modul (über SPI angeschlossen)
+### Kurzübersicht
 
-### Schritte
+#### Voraussetzungen
+
+- Raspberry Pi 3B / 4 / Zero 2 W (40-poliger GPIO, SPI)
+- RC522 RFID-Modul (SPI, 3,3 V)
+- Raspberry Pi OS (Bookworm, 64-bit empfohlen)
+
+#### RC522 Verdrahtung
+
+> ⚠️ Das RC522-Modul wird mit **3,3 V** betrieben – niemals 5 V anschließen!
+
+| RC522-Pin | Raspberry Pi Pin | GPIO |
+|---|---|---|
+| VCC | Pin 1 | 3,3 V |
+| GND | Pin 6 | GND |
+| SDA (CS) | Pin 24 | GPIO 8 (CE0) |
+| SCK | Pin 23 | GPIO 11 |
+| MOSI | Pin 19 | GPIO 10 |
+| MISO | Pin 21 | GPIO 9 |
+| RST | Pin 22 | GPIO 25 |
+| IRQ | – | nicht anschließen |
+
+```
+RC522-Modul                        Raspberry Pi GPIO
+┌─────────────┐                    ┌──────────────────────────┐
+│  [VCC ] ───────────────────────► Pin  1  (3,3 V)            │
+│  [GND ] ───────────────────────► Pin  6  (GND)              │
+│  [SDA ] ───────────────────────► Pin 24  (GPIO  8 / CE0)    │
+│  [SCK ] ───────────────────────► Pin 23  (GPIO 11 / SCLK)   │
+│  [MOSI] ───────────────────────► Pin 19  (GPIO 10 / MOSI)   │
+│  [MISO] ◄──────────────────────  Pin 21  (GPIO  9 / MISO)   │
+│  [RST ] ───────────────────────► Pin 22  (GPIO 25)          │
+└─────────────┘                    └──────────────────────────┘
+```
+
+#### Schritte
 
 1. **SPI aktivieren:**
    ```bash
    sudo raspi-config
    # → Interface Options → SPI → Enable
+   sudo reboot
    ```
 
-2. **Abhängigkeiten installieren:**
+2. **Repository klonen und Abhängigkeiten installieren:**
    ```bash
+   git clone https://github.com/ursxf/FSGetraenkeSystem.git
+   cd FSGetraenkeSystem
+   python3 -m venv venv && source venv/bin/activate
    pip install -r requirements.txt
    pip install mfrc522
    ```
 
-3. **Umgebungsvariablen setzen:**
+3. **Konfiguration anlegen:**
    ```bash
-   export RFID_ENABLED=true
-   export SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
-   export ADMIN_PASSWORD=mein-sicheres-passwort
+   cp .env.example .env
+   # .env bearbeiten: SECRET_KEY, ADMIN_PASSWORD, RFID_ENABLED=true
    ```
 
 4. **Anwendung starten:**
    ```bash
+   source venv/bin/activate
    python run.py
    ```
 
-### Dauerhaft als Dienst einrichten (systemd)
+#### Dauerhaft als systemd-Dienst einrichten
 
 ```ini
 # /etc/systemd/system/getraenke.service
@@ -249,11 +286,10 @@ Description=FSGetraenkeSystem
 After=network.target
 
 [Service]
+User=pi
 WorkingDirectory=/home/pi/FSGetraenkeSystem
-Environment=RFID_ENABLED=true
-Environment=SECRET_KEY=dein-geheimschluessel
-Environment=ADMIN_PASSWORD=dein-passwort
-ExecStart=/usr/bin/python3 run.py
+EnvironmentFile=/home/pi/FSGetraenkeSystem/.env
+ExecStart=/home/pi/FSGetraenkeSystem/venv/bin/python run.py
 Restart=always
 
 [Install]
@@ -261,6 +297,7 @@ WantedBy=multi-user.target
 ```
 
 ```bash
+sudo systemctl daemon-reload
 sudo systemctl enable getraenke
 sudo systemctl start getraenke
 ```
