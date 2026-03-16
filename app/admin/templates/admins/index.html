@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block pagetitle %}Administratoren{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Administratoren</h4>
+    <div class="btn-group">
+        <a href="{{ url_for('admin.admins.new') }}" class="btn btn-success btn-sm">
+            <i class="fa-solid fa-plus me-1"></i> Neuer Admin
+        </a>
+        <a href="{{ url_for('admin.admins.change_password') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-key me-1"></i> Passwort ändern
+        </a>
+    </div>
+</div>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th class="text-center">PIN</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for adm in admins %}
+    <tr>
+        <td>{{ adm.name }}{% if adm.id == current_user.id %} <span class="badge bg-info">Du</span>{% endif %}</td>
+        <td class="text-center">{% if adm.pin %}<i class="fa-solid fa-lock text-success"></i>{% else %}<i class="fa-solid fa-lock-open text-muted"></i>{% endif %}</td>
+        <td>
+            {% if adm.id != current_user.id %}
+            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#delete{{ adm.id }}">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% for adm in admins %}
+{% if adm.id != current_user.id %}
+<div class="modal fade" id="delete{{ adm.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Admin löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">Admin "{{ adm.name }}" wirklich löschen?</div>
+            <div class="modal-footer">
+                <a href="{{ url_for('admin.admins.delete', admin_id=adm.id) }}" class="btn btn-danger">Löschen</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

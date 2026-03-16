@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block pagetitle %}Benutzer: {{ user.name }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- User info -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-user me-1"></i> {{ user.name }}</span>
+                <a href="{{ url_for('admin.users.edit', user_id=user.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li><strong>Admin:</strong> {{ macro.render_bool(user.isop) }}</li>
+                    <li><strong>Aktiv:</strong> {{ macro.render_bool(user.active) }}</li>
+                    <li><strong>PIN:</strong> {% if user.pin %}<i class="fa-solid fa-lock text-success"></i>{% else %}<i class="fa-solid fa-lock-open text-muted"></i>{% endif %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- RFID tags -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-solid fa-id-card-clip me-1"></i> RFID-Tags
+            </div>
+            <div class="card-body">
+                {% if user.rfid_tags.count() == 0 %}
+                    <p class="text-muted">Keine RFID-Tags zugewiesen.</p>
+                {% else %}
+                    <ul class="list-group mb-3">
+                        {% for tag in user.rfid_tags %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="font-monospace small text-muted">{{ tag.uid_hash[:24] }}…</span>
+                            <form method="post" action="{{ url_for('admin.users.remove_tag', user_id=user.id, tag_id=tag.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                <form method="post" action="{{ url_for('admin.users.add_tag', user_id=user.id) }}" class="row g-2">
+                    {{ tag_form.csrf_token }}
+                    <div class="col">
+                        {{ tag_form.uid(class="form-control", placeholder="RFID-UID (z.B. A1B2C3D4)") }}
+                    </div>
+                    <div class="col-auto">
+                        {{ tag_form.submit(class="btn btn-success") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction history -->
+<div class="mt-4">
+    <h5>Letzte Transaktionen</h5>
+    <table class="table table-sm">
+        <thead>
+        <tr>
+            <th>Datum</th>
+            <th>Produkt</th>
+            <th class="text-end">Betrag</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for rev, product_name in revenues %}
+        <tr>
+            <td>{{ rev.date.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ product_name if product_name else '(Guthaben)' }}</td>
+            <td class="text-end {% if rev.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ macro.render_currency(rev.amount) }}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-muted">Keine Transaktionen.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<a href="{{ url_for('admin.users.index') }}" class="btn btn-secondary mt-2">
+    <i class="fa-solid fa-arrow-left me-1"></i> Zurück
+</a>
+{% endblock %}

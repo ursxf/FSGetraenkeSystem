@@ -7,7 +7,8 @@ from wtforms.validators import InputRequired
 
 from .db import db
 from .db.helpers import revenue_query
-from .forms import CardForm, PinForm
+from .db.models import RfidTag
+from .forms import PinForm
 from .helpers import calc_hash, check_hash
 
 account_bp = Blueprint('account', __name__, url_prefix='/account')
@@ -64,26 +65,13 @@ def pin() -> Union[Response, str]:
     return render_template('account/change_pin.html', form=form)
 
 
-@account_bp.route('/card', methods=['GET', 'POST'])
+@account_bp.route('/card')
 @login_required
-def card() -> Union[Response, str]:
-    form = CardForm()
+def card() -> str:
+    """Show the RFID tags associated with the current user's account.
 
-    if request.method == 'POST':
-        if form.validate_on_submit():
-            if form.unset_card.data:
-                current_user.card = None
-                flash('Unset Card', category='success')
-            else:
-                if not form.card_number.data:
-                    flash('Card number has no value', category='danger')
-                    return render_template('account/change_card.html', form=form)
-                current_user.card = calc_hash(form.card_number.data)
-                flash('Changed Card', category='success')
+    Tags can only be added or removed by an admin.
+    """
+    tags = RfidTag.query.filter_by(user_id=current_user.id).all()
+    return render_template('account/change_card.html', tags=tags)
 
-            db.session.commit()
-            return redirect(url_for('main.index'))
-
-        flash('Submitted form was not valid!', category='danger')
-
-    return render_template('account/change_card.html', form=form)

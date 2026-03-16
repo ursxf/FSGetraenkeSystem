@@ -2,7 +2,7 @@
 
 import pytest
 from app.db import db as _db
-from app.db.models import User, Product, Revenue
+from app.db.models import RfidTag, UnknownScan, User, Product, Revenue
 from app.helpers import calc_hash
 
 
@@ -59,7 +59,7 @@ def test_users_list_loads(auth_client):
 def test_create_user(auth_client, app):
     response = auth_client.post(
         '/admin/users/',
-        data={'name': 'Erika Muster', 'isop': False},
+        data={'name': 'Erika Muster', 'isop': False, 'active': True},
         follow_redirects=True,
     )
     assert response.status_code == 200
@@ -68,29 +68,31 @@ def test_create_user(auth_client, app):
         assert user is not None
 
 
-def test_create_user_with_card(auth_client, app):
+def test_create_user_with_rfid_tag(auth_client, app):
     response = auth_client.post(
         '/admin/users/',
-        data={'name': 'Card User', 'card': 'RFID_UID_XY'},
+        data={'name': 'Card User', 'new_tag_uid': 'RFID_UID_XY', 'active': True},
         follow_redirects=True,
     )
     assert response.status_code == 200
     with app.app_context():
         user = User.query.filter_by(name='Card User').first()
         assert user is not None
-        # Card is stored as hash
-        assert user.card == calc_hash('RFID_UID_XY')
+        # RFID tag should be stored as hash
+        tag = RfidTag.query.filter_by(uid_hash=calc_hash('RFID_UID_XY')).first()
+        assert tag is not None
+        assert tag.user_id == user.id
 
 
 def test_edit_user(auth_client, sample_user, app):
     response = auth_client.post(
         '/admin/users/',
-        data={'id': sample_user.id, 'name': 'Max Geaendert'},
+        data={'id': sample_user.id, 'name': 'Max Geaendert', 'active': True},
         follow_redirects=True,
     )
     assert response.status_code == 200
     with app.app_context():
-        user = User.query.get(sample_user.id)
+        user = _db.session.get(User, sample_user.id)
         assert user.name == 'Max Geaendert'
 
 
@@ -98,6 +100,39 @@ def test_admin_can_view_user_revenues(auth_client, sample_user):
     response = auth_client.get(f'/admin/users/revenues/{sample_user.id}')
     assert response.status_code == 200
     assert sample_user.name.encode() in response.data
+
+
+def test_admin_user_detail(auth_client, sample_user):
+    response = auth_client.get(f'/admin/users/{sample_user.id}')
+    assert response.status_code == 200
+    assert sample_user.name.encode() in response.data
+
+
+def test_admin_add_rfid_tag(auth_client, sample_user, app):
+    response = auth_client.post(
+        f'/admin/users/{sample_user.id}/tags/add',
+        data={'uid': 'NEW_RFID_TAG'},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    with app.app_context():
+        tag = RfidTag.query.filter_by(uid_hash=calc_hash('NEW_RFID_TAG')).first()
+        assert tag is not None
+        assert tag.user_id == sample_user.id
+
+
+def test_admin_remove_rfid_tag(auth_client, sample_user, app):
+    with app.app_context():
+        tag = RfidTag.query.filter_by(user_id=sample_user.id).first()
+        assert tag is not None
+        tag_id = tag.id
+    response = auth_client.post(
+        f'/admin/users/{sample_user.id}/tags/remove/{tag_id}',
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    with app.app_context():
+        assert _db.session.get(RfidTag, tag_id) is None
 
 
 def test_admin_balance_recharge(auth_client, sample_user, app):
@@ -137,7 +172,63 @@ def test_delete_user(auth_client, app):
     response = auth_client.get(f'/admin/users/delete/{uid}', follow_redirects=True)
     assert response.status_code == 200
     with app.app_context():
-        assert User.query.get(uid) is None
+        assert _db.session.get(User, uid) is None
+
+
+# ---------------------------------------------------------------------------
+# Admin dashboard
+# ---------------------------------------------------------------------------
+
+
+def test_admin_dashboard_loads(auth_client):
+    response = auth_client.get('/admin/')
+    assert response.status_code == 200
+    assert b'Dashboard' in response.data
+
+
+def test_admin_transactions_loads(auth_client):
+    response = auth_client.get('/admin/transactions/')
+    assert response.status_code == 200
+
+
+def test_admin_admins_list_loads(auth_client):
+    response = auth_client.get('/admin/admins/')
+    assert response.status_code == 200
+    assert b'testadmin' in response.data
+
+
+def test_admin_unknown_scan_assign(auth_client, sample_user, app):
+    with app.app_context():
+        scan = UnknownScan(uid_hash=calc_hash('UNKNOWN_CARD'))
+        _db.session.add(scan)
+        _db.session.commit()
+        scan_id = scan.id
+
+    response = auth_client.post(
+        f'/admin/users/unknown-scans/{scan_id}/assign/{sample_user.id}',
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    with app.app_context():
+        assert _db.session.get(UnknownScan, scan_id) is None
+        tag = RfidTag.query.filter_by(uid_hash=calc_hash('UNKNOWN_CARD')).first()
+        assert tag is not None
+
+
+def test_admin_unknown_scan_dismiss(auth_client, app):
+    with app.app_context():
+        scan = UnknownScan(uid_hash=calc_hash('TOBE_DISMISSED'))
+        _db.session.add(scan)
+        _db.session.commit()
+        scan_id = scan.id
+
+    response = auth_client.post(
+        f'/admin/users/unknown-scans/{scan_id}/dismiss',
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    with app.app_context():
+        assert _db.session.get(UnknownScan, scan_id) is None
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +265,7 @@ def test_edit_product(auth_client, sample_product, app):
     )
     assert response.status_code == 200
     with app.app_context():
-        product = Product.query.get(sample_product.id)
+        product = _db.session.get(Product, sample_product.id)
         assert product.name == 'Fritz Kola'
         assert product.price == 200
 
@@ -186,7 +277,7 @@ def test_delete_product(auth_client, sample_product, app):
     )
     assert response.status_code == 200
     with app.app_context():
-        assert Product.query.get(sample_product.id) is None
+        assert _db.session.get(Product, sample_product.id) is None
 
 
 # ---------------------------------------------------------------------------
@@ -207,4 +298,5 @@ def test_impersonate_pop(auth_client, sample_user):
     auth_client.get(f'/admin/users/impersonate/{sample_user.id}')
     response = auth_client.get('/admin/users/impersonate/pop', follow_redirects=False)
     assert response.status_code == 302
+
 

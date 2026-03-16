@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block pagetitle %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+    <div class="col">
+        <div class="card border-primary text-center h-100">
+            <div class="card-body">
+                <i class="fa-solid fa-users fa-3x text-primary mb-2"></i>
+                <h5 class="card-title">Aktive Benutzer</h5>
+                <p class="display-5 fw-bold">{{ active_users }}</p>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('admin.users.index') }}" class="btn btn-sm btn-outline-primary">Verwalten</a>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card border-success text-center h-100">
+            <div class="card-body">
+                <i class="fa-solid fa-mug-hot fa-3x text-success mb-2"></i>
+                <h5 class="card-title">Sichtbare Getränke</h5>
+                <p class="display-5 fw-bold">{{ active_products }}</p>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('admin.products.index') }}" class="btn btn-sm btn-outline-success">Verwalten</a>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card border-info text-center h-100">
+            <div class="card-body">
+                <i class="fa-solid fa-coins fa-3x text-info mb-2"></i>
+                <h5 class="card-title">Gesamtsaldo</h5>
+                <p class="display-5 fw-bold">{{ total_balance | format_currency }}</p>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('admin.transactions.index') }}" class="btn btn-sm btn-outline-info">Transaktionen</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h5>Letzte Transaktionen</h5>
+<table class="table table-sm">
+    <thead>
+    <tr>
+        <th>Datum</th>
+        <th>Benutzer</th>
+        <th>Produkt</th>
+        <th class="text-end">Betrag</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for rev, user_name, product_name in latest_revenues %}
+    <tr>
+        <td>{{ rev.date.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ user_name if user_name else '–' }}</td>
+        <td>{{ product_name if product_name else '(Guthaben)' }}</td>
+        <td class="text-end {% if rev.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ macro.render_currency(rev.amount) }}
+        </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-muted">Keine Transaktionen.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

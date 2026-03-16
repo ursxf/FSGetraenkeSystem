@@ -1,17 +1,50 @@
 {% extends 'base.html' %}
-{% block pagetitle %}Users{% endblock %}
+{% block pagetitle %}Benutzer{% endblock %}
 
 {% block content %}
+    {% if unknown_scans %}
+    <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+        <i class="fa-solid fa-question-circle me-2"></i>
+        <div>
+            <strong>{{ unknown_scans|length }} unbekannte RFID-Scan(s):</strong>
+            {% for scan in unknown_scans %}
+            <div class="d-flex align-items-center mt-1 gap-2 flex-wrap">
+                <span class="font-monospace small text-muted">{{ scan.uid_hash[:16] }}…</span>
+                <span class="text-muted small">{{ scan.scanned_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                <form method="post" action="{{ url_for('admin.users.dismiss_unknown_scan', scan_id=scan.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Verwerfen</button>
+                </form>
+                <div class="dropdown d-inline">
+                    <button class="btn btn-sm btn-warning dropdown-toggle" type="button" data-bs-toggle="dropdown">Zuweisen</button>
+                    <ul class="dropdown-menu">
+                        {% for user, _bal in users %}
+                        <li>
+                            <form method="post" action="{{ url_for('admin.users.assign_unknown_scan', scan_id=scan.id, user_id=user.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="dropdown-item">{{ user.name }}</button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <table class="table">
         <thead>
         <tr>
-            <th scope="col" style="width: 8rem">Impersonate</th>
+            <th scope="col" style="width: 8rem">Impersonieren</th>
             <th scope="col">Name</th>
-            <th scope="col" style="width: 9rem">Balance</th>
-            <th scope="col" class="text-center">Card</th>
+            <th scope="col" style="width: 9rem">Guthaben</th>
+            <th scope="col" class="text-center">RFID</th>
             <th scope="col" class="text-center">Admin</th>
             <th scope="col" class="text-center">PIN</th>
-            <th scope="col" style="width: 8rem">Revenues</th>
+            <th scope="col" class="text-center">Aktiv</th>
+            <th scope="col" style="width: 8rem">Transaktionen</th>
             <th scope="col">
                 <div class="row">
                     <a role="button" class="btn btn-success btn-sm col mx-1" href="{{ url_for('admin.users.add') }}">
@@ -23,9 +56,9 @@
         </thead>
         <tbody>
         {% for user, balance in users %}
-            <tr>
+            <tr {% if not user.active %}class="table-secondary text-muted"{% endif %}>
                 <td>
-                    <a role="button" class="btn btn-primary btn-sm px-4"
+                    <a role="button" class="btn btn-primary btn-sm px-4 {% if not user.active %}disabled{% endif %}"
                        href="{{ url_for('admin.users.impersonate', user_id=user.id) }}">
                         <i class="fa-solid fa-user-secret"></i>
                     </a>
@@ -38,10 +71,14 @@
                         <i class="fa-solid fa-plus-minus px-1"></i>
                     </a>
                 </td>
-                <td class="text-center">{% if user.card is not none %}
-                    <i class="fa-solid fa-id-card-clip"></i>{% endif %}</td>
+                <td class="text-center">
+                    <a href="{{ url_for('admin.users.detail', user_id=user.id) }}" class="text-decoration-none">
+                        {{ user.rfid_tags.count() }} <i class="fa-solid fa-id-card-clip"></i>
+                    </a>
+                </td>
                 <td class="text-center">{{ macro.render_bool(user.isop) }}</td>
                 <td class="text-center">{% if user.pin is not none %}<i class="fa-solid fa-lock"></i>{% endif %}</td>
+                <td class="text-center">{{ macro.render_bool(user.active) }}</td>
                 <td>
                     <a role="button" class="btn btn-primary btn-sm px-4"
                        href="{{ url_for('admin.users.revenues', user_id=user.id) }}">
@@ -69,18 +106,18 @@
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="delete{{ user.id }}">Confirm delete</h5>
+                        <h5 class="modal-title">Löschen bestätigen</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        Are you sure you want to delete the user "{{ user.name }}"?
+                        Benutzer "{{ user.name }}" wirklich löschen?
                     </div>
                     <div class="modal-footer">
                         <a role="button" class="btn btn-danger"
                            href="{{ url_for('admin.users.delete', user_id=user.id) }}">
-                            Confirm
+                            Löschen
                         </a>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                     </div>
                 </div>
             </div>

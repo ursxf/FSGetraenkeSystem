@@ -51,11 +51,13 @@
                             Admin
                         </button>
                         <ul class="dropdown-menu" aria-labelledby="admin_dropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('admin.users.index') }}">Users</a>
-                            </li>
-                            <li><a class="dropdown-item"
-                                   href="{{ url_for('admin.products.index') }}">Products</a>
-                            </li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.users.index') }}">Benutzer</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.products.index') }}">Getränke</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.transactions.index') }}">Transaktionen</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.admins.index') }}">Admins</a></li>
                         </ul>
                     </div>
 {% endif %}
@@ -66,9 +68,9 @@
                             Account
                         </button>
                         <ul class="dropdown-menu" aria-labelledby="account_dropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('account.revenues') }}">Revenues</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('account.card') }}">Change Card</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('account.pin') }}">Change PIN</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('account.revenues') }}">Transaktionen</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('account.card') }}">RFID-Tags</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('account.pin') }}">PIN ändern</a></li>
                         </ul>
                     </div>
 {% endif %}

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block pagetitle %}Neuer Administrator{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-center">
+        <form class="w-50" method="post" action="{{ url_for('admin.admins.new') }}">
+            {{ form.csrf_token }}
+            {{ macro.render_field(form.name) }}
+            {{ macro.render_field(form.pin) }}
+            {{ macro.render_field(form.confirm_pin) }}
+            <div class="row mt-3">
+                {{ form.submit(class="col mx-3 btn btn-success") }}
+                <a role="button" href="{{ url_for('admin.admins.index') }}" class="col mx-3 btn btn-secondary">Abbrechen</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

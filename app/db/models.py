@@ -9,9 +9,25 @@ class User(db.Model, UserMixin):  # type: ignore # until https://github.com/pyth
     __tablename__ = 'users'
     id = db.Column('id', db.Integer, primary_key=True)
     name = db.Column('name', db.VARCHAR(200), nullable=False, unique=True)
-    card = db.Column('card', db.VARCHAR(500))
     isop = db.Column('isop', db.Boolean, server_default=db.false(), nullable=False)
     pin = db.Column('pin', db.VARCHAR(500))
+    active = db.Column('active', db.Boolean, server_default=db.true(), nullable=False)
+    rfid_tags = db.relationship('RfidTag', back_populates='user', cascade='all, delete-orphan', lazy='dynamic')
+
+
+class RfidTag(db.Model):  # type: ignore
+    __tablename__ = 'rfid_tags'
+    id = db.Column('id', db.Integer, primary_key=True)
+    user_id = db.Column('user_id', db.Integer, db.ForeignKey('users.id'), nullable=False)
+    uid_hash = db.Column('uid_hash', db.VARCHAR(500), nullable=False, unique=True)
+    user = db.relationship('User', back_populates='rfid_tags')
+
+
+class UnknownScan(db.Model):  # type: ignore
+    __tablename__ = 'unknown_scans'
+    id = db.Column('id', db.Integer, primary_key=True)
+    uid_hash = db.Column('uid_hash', db.VARCHAR(500), nullable=False, unique=True)
+    scanned_at = db.Column('scanned_at', db.TIMESTAMP(timezone=True), server_default=db.func.now())
 
 
 class Product(db.Model):  # type: ignore # until https://github.com/python/mypy/issues/8603 is fixed

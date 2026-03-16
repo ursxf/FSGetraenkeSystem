@@ -6,7 +6,8 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_principal import AnonymousIdentity, Identity, identity_changed
 from werkzeug.wrappers import Response
 
-from .db.models import User
+from .db import db
+from .db.models import RfidTag, UnknownScan, User
 from .forms import LoginForm
 from .helpers import calc_hash, check_hash
 
@@ -106,9 +107,11 @@ def rfid_stream() -> Response:
 def rfid_login() -> Union[Response, str]:
     """Identify and log in a user by RFID card UID.
 
-    Accepts JSON ``{"uid": "<UID>"}``.  Hashes the UID and looks up the
-    matching ``User.card`` field.  On success, logs the user in with terminal
-    mode active and returns a JSON redirect target.
+    Accepts JSON ``{"uid": "<UID>"}``.  Hashes the UID, looks it up in the
+    ``rfid_tags`` table and checks that the account is active.  On success,
+    logs the user in with terminal mode active and returns a JSON redirect
+    target.  If the UID is unknown, saves it as an ``UnknownScan`` for later
+    assignment by an admin.
     """
     from .rfid import disable_scanning
 
@@ -119,14 +122,70 @@ def rfid_login() -> Union[Response, str]:
 
     disable_scanning()
 
-    card_hash = calc_hash(uid)
-    user = User.query.filter_by(card=card_hash).one_or_none()
+    uid_hash = calc_hash(uid)
+    tag = RfidTag.query.filter_by(uid_hash=uid_hash).one_or_none()
 
-    if user is None:
+    if tag is None:
+        # Record as unknown scan so an admin can assign it later.
+        existing = UnknownScan.query.filter_by(uid_hash=uid_hash).one_or_none()
+        if existing is None:
+            db.session.add(UnknownScan(uid_hash=uid_hash))
+            db.session.commit()
         return jsonify({'error': 'not_found'}), 404
+
+    user = tag.user
+    if not user.active:
+        return jsonify({'error': 'inactive'}), 403
 
     login_user(user, remember=False)
     session['terminal'] = True
     identity_changed.send(current_app._get_current_object(), identity=Identity(user.id))  # type: ignore
 
     return jsonify({'redirect': url_for('main.index')})
+
+
+# ---------------------------------------------------------------------------
+# JSON API
+# ---------------------------------------------------------------------------
+
+
+@auth_bp.route('/api/identify', methods=['POST'])
+def api_identify() -> Response:
+    """Identify a user by RFID UID without starting a web session.
+
+    Intended for external hardware / scripts that need to look up a user
+    without going through the full kiosk flow.
+
+    **Request** (JSON): ``{"uid": "<UID>"}``
+
+    **Response 200** (JSON)::
+
+        {
+          "id": 3,
+          "name": "Max Mustermann",
+          "balance_euro": 12.50
+        }
+
+    **Response 404**: ``{"error": "not_found"}``
+
+    **Response 400**: ``{"error": "uid required"}``
+    """
+    from .db.helpers import get_balance
+
+    data = request.get_json(force=True, silent=True) or {}
+    uid = str(data.get('uid', '')).strip()
+    if not uid:
+        return jsonify({'error': 'uid required'}), 400
+
+    uid_hash = calc_hash(uid)
+    tag = RfidTag.query.filter_by(uid_hash=uid_hash).one_or_none()
+    if tag is None:
+        return jsonify({'error': 'not_found'}), 404
+
+    user = tag.user
+    balance_cents = get_balance(user.id)
+    return jsonify({
+        'id': user.id,
+        'name': user.name,
+        'balance_euro': round(balance_cents / 100, 2),
+    })
