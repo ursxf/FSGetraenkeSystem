@@ -1,0 +1,110 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ user.name }} – FS Getränkesystem{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4 gap-3">
+  <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h2 class="fw-bold mb-0">{{ user.name }}</h2>
+  <a href="{{ url_for('admin.user_edit', user_id=user.id) }}" class="btn btn-outline-secondary btn-sm ms-auto">
+    <i class="bi bi-pencil me-1"></i>Bearbeiten
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body text-center">
+        <div class="fs-1 {% if user.balance_cents >= 0 %}balance-positive{% else %}balance-negative{% endif %}">
+          {{ "%.2f"|format(user.balance_euro) }} €
+        </div>
+        <div class="text-muted">Kontostand</div>
+        <a href="{{ url_for('admin.user_deposit', user_id=user.id) }}" class="btn btn-success btn-sm mt-2">
+          <i class="bi bi-plus-circle me-1"></i>Guthaben aufladen
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-2">RFID Tags</div>
+        {% if user.rfid_tags %}
+          {% for tag in user.rfid_tags %}
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <code class="small">{{ tag.uid }}</code>
+            <form method="post" action="{{ url_for('admin.user_tag_remove', user_id=user.id, tag_id=tag.id) }}"
+                  class="ms-2" onsubmit="return confirm('Tag entfernen?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1">
+                <i class="bi bi-x"></i>
+              </button>
+            </form>
+          </div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted small">Noch keine Tags.</span>
+        {% endif %}
+        <hr class="my-2">
+        <form method="post" action="{{ url_for('admin.user_tag_add', user_id=user.id) }}" class="d-flex gap-1">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="uid" class="form-control form-control-sm" placeholder="Neue UID" maxlength="64" required>
+          <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">
+            <i class="bi bi-plus"></i> Hinzufügen
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Status</div>
+        {% if user.active %}
+          <span class="badge bg-success fs-6">Aktiv</span>
+        {% else %}
+          <span class="badge bg-secondary fs-6">Inaktiv</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header fw-semibold"><i class="bi bi-clock-history me-2"></i>Transaktionsverlauf</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Zeit</th>
+          <th>Typ</th>
+          <th>Getränk / Notiz</th>
+          <th class="text-end">Betrag</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in transactions %}
+        <tr>
+          <td class="text-muted small">{{ tx.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+          <td>
+            {% if tx.type == 'purchase' %}
+              <span class="badge bg-warning text-dark">Kauf</span>
+            {% else %}
+              <span class="badge bg-success">Einzahlung</span>
+            {% endif %}
+          </td>
+          <td>{{ tx.drink.name if tx.drink else (tx.note or '–') }}</td>
+          <td class="text-end {% if tx.amount_cents >= 0 %}balance-positive{% else %}balance-negative{% endif %}">
+            {{ "%.2f"|format(tx.amount_euro) }} €
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center text-muted py-3">Noch keine Transaktionen.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

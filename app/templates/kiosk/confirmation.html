@@ -1,0 +1,33 @@
+{% extends "kiosk/base.html" %}
+
+{% block title %}Buchung bestätigt – FS Getränkesystem{% endblock %}
+
+{% block content %}
+<div class="text-center py-4">
+  <i class="bi bi-check-circle-fill text-success" style="font-size:5rem;"></i>
+  <h2 class="mt-3 fw-bold">Buchung erfolgreich!</h2>
+  <p class="lead">
+    <strong>{{ drink.name }}</strong> wurde für
+    <strong>{{ "%.2f"|format(drink.price_euro) }} €</strong>
+    gebucht.
+  </p>
+  <p class="text-muted">
+    Neuer Kontostand:
+    <span class="{% if user.balance_cents >= 0 %}balance-positive{% else %}balance-negative{% endif %} fs-5">
+      {{ "%.2f"|format(user.balance_euro) }} €
+    </span>
+  </p>
+  <a href="{{ url_for('kiosk.index') }}" class="btn btn-primary mt-3">
+    <i class="bi bi-house-door me-2"></i>Zurück zum Start
+  </a>
+</div>
+
+{% block extra_scripts %}
+<script>
+  // Auto-redirect to start after 5 seconds
+  setTimeout(function() {
+    window.location.href = "{{ url_for('kiosk.index') }}";
+  }, 5000);
+</script>
+{% endblock %}
+{% endblock %}
