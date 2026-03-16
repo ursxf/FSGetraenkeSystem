@@ -78,7 +78,13 @@ def select_drink():
         .order_by(purchase_counts.c.count.desc().nullslast(), Drink.name)
         .all()
     )
-    return render_template("kiosk/select_drink.html", user=user, drinks=drinks)
+    min_balance_cents = current_app.config.get("MINIMUM_BALANCE_CENTS", 0)
+    return render_template(
+        "kiosk/select_drink.html",
+        user=user,
+        drinks=drinks,
+        min_balance_cents=min_balance_cents,
+    )
 
 
 @kiosk_bp.route("/purchase/<int:drink_id>", methods=["POST"])
@@ -94,6 +100,14 @@ def purchase(drink_id):
     if not user or not user.active or not drink or not drink.active:
         flash("Ungültige Auswahl.", "danger")
         return redirect(url_for("kiosk.index"))
+
+    min_balance_cents = current_app.config.get("MINIMUM_BALANCE_CENTS", 0)
+    if user.balance_cents - drink.price_cents < min_balance_cents:
+        flash(
+            "Nicht genügend Guthaben. Bitte lade dein Konto auf.",
+            "warning",
+        )
+        return redirect(url_for("kiosk.select_drink"))
 
     tx = Transaction(
         user_id=user.id,

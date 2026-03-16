@@ -23,12 +23,15 @@
 {% if drinks %}
 <div class="row g-3">
   {% for drink in drinks %}
+  {% set affordable = (user.balance_cents - drink.price_cents) >= min_balance_cents %}
   <div class="col-6 col-md-4">
     <form method="post" action="{{ url_for('kiosk.purchase', drink_id=drink.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn btn-outline-primary drink-btn w-100 text-start">
+      <button type="submit"
+              class="btn {% if affordable %}btn-outline-primary{% else %}btn-outline-secondary{% endif %} drink-btn w-100 text-start"
+              {% if not affordable %}disabled aria-disabled="true" title="Nicht genügend Guthaben"{% endif %}>
         <div class="fw-bold">{{ drink.name }}</div>
-        <div class="text-muted small mt-1">{{ "%.2f"|format(drink.price_euro) }} €</div>
+        <div class="{% if affordable %}text-muted{% else %}text-danger{% endif %} small mt-1">{{ "%.2f"|format(drink.price_euro) }} €</div>
       </button>
     </form>
   </div>

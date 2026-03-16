@@ -202,6 +202,7 @@ Kopiere sie nach `.env` und passe die Werte an, oder setze die Variablen direkt 
 | `ADMIN_PASSWORD` | *(zufällig, wird in Konsole ausgegeben)* | Passwort des initialen Admins |
 | `RFID_ENABLED` | `false` | `true` → echte RC522-Hardware; `false` → Demo-Modus |
 | `RFID_DEMO_UID` | *(leer)* | Im Demo-Modus automatisch verwendete UID (leer = manuelle Eingabe) |
+| `MINIMUM_BALANCE_CENTS` | `0` | Mindestkontostand nach Kauf in Cent. `0` = kein negativer Saldo; z. B. `-500` = bis zu 5 € Schulden erlaubt |
 
 > **Wichtig:** `SECRET_KEY` und `ADMIN_PASSWORD` sollten in Produktion immer als Umgebungsvariablen gesetzt werden – niemals fest im Code hinterlegen.
 
