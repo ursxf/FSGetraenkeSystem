@@ -103,19 +103,18 @@ def index_post() -> Response:
 
     # Check minimum balance constraint
     min_balance = current_app.config.get('MINIMUM_BALANCE_CENTS', 0)
-    if min_balance is not None:
-        from .db.helpers import get_balance
-        current_balance = get_balance(user_id) or 0
-        if current_balance - product.price < min_balance:
-            flash(
-                f'Nicht genug Guthaben für {product.name}. '
-                f'Kontostand: {format_currency(current_balance)}, '
-                f'Preis: {format_currency(product.price)}.',
-                category='danger',
-            )
-            if session.get('terminal', False):
-                return redirect(url_for('auth.logout'))
-            return redirect(url_for('main.index'))
+    from .db.helpers import get_balance
+    current_balance = get_balance(user_id) or 0
+    if current_balance - product.price < min_balance:
+        flash(
+            f'Nicht genug Guthaben für {product.name}. '
+            f'Kontostand: {format_currency(current_balance)}, '
+            f'Preis: {format_currency(product.price)}.',
+            category='danger',
+        )
+        if session.get('terminal', False):
+            return redirect(url_for('auth.logout'))
+        return redirect(url_for('main.index'))
 
     db.session.add(rev)
     db.session.commit()
