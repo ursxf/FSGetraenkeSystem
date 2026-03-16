@@ -3,7 +3,7 @@
 import pytest
 from app import create_app
 from app.db import db as _db
-from app.db.models import User, Product, Revenue
+from app.db.models import RfidTag, User, Product, Revenue
 from app.helpers import calc_hash
 
 
@@ -19,6 +19,9 @@ class TestConfig:
     QUICK_CANCEL_SEC = 60
     FAVORITES_DISPLAY = 3
     FAVORITES_DAYS = 100
+    MINIMUM_BALANCE_CENTS = 0
+    ADMIN_USERNAME = 'testadmin'
+    ADMIN_PASSWORD = 'testpin'
 
 
 @pytest.fixture(scope='session')
@@ -50,6 +53,7 @@ def _seed_admin():
             name='testadmin',
             pin=calc_hash('testpin'),
             isop=True,
+            active=True,
         )
         _db.session.add(admin)
         _db.session.commit()
@@ -76,10 +80,13 @@ def auth_client(client, app):
 def sample_user(db):
     user = User(
         name='Max Mustermann',
-        card=calc_hash('RFID001'),
+        active=True,
     )
     _db.session.add(user)
     _db.session.flush()
+    # Add an RFID tag for the sample user
+    tag = RfidTag(user_id=user.id, uid_hash=calc_hash('RFID001'))
+    _db.session.add(tag)
     # Give them some balance via a revenue entry
     rev = Revenue(user=user.id, product=None, amount=500)
     _db.session.add(rev)
@@ -93,3 +100,4 @@ def sample_product(db):
     _db.session.add(product)
     _db.session.commit()
     return product
+

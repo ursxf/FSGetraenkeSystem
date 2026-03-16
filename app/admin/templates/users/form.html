@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 {% block pagetitle %}
     {% if edit %}
-        Edit user
+        Benutzer bearbeiten
     {% else %}
-        Add user
+        Benutzer anlegen
     {% endif %}
 {% endblock %}
 
@@ -16,20 +16,15 @@
                 {{ macro.render_field(form.id) }}
             {% endif %}
             {{ macro.render_field(form.name) }}
-            <div class="row g-3 mb-3">
-                <div class="col-9">
-                    <div class="form-floating">
-                        {{ form.card(class="form-control") }}
-                        {{ form.card.label }}
-                    </div>
+            {% if not edit %}
+            <div class="mb-3">
+                <div class="form-floating">
+                    {{ form.new_tag_uid(class="form-control") }}
+                    {{ form.new_tag_uid.label }}
                 </div>
-                <div class="col-3 p-3">
-                    <div class="form-check">
-                        {{ form.unset_card(class="form-check-input") }}
-                        {{ form.unset_card.label }}
-                    </div>
-                </div>
+                <div class="form-text">Optional: RFID-Tag wird sofort zugewiesen.</div>
             </div>
+            {% endif %}
             <div class="row g-3 mb-3">
                 <div class="col-9">
                     <div class="form-floating">
@@ -45,15 +40,16 @@
                 </div>
             </div>
             {{ macro.render_checkbox(form.isop) }}
+            {{ macro.render_checkbox(form.active) }}
             <div class="row mt-3">
                 <button type="submit" class="col mx-3 btn btn-success">
                     {% if edit %}
-                        Update
+                        Aktualisieren
                     {% else %}
-                        Create
+                        Anlegen
                     {% endif %}
                 </button>
-                <a role="button" href="{{ url_for('admin.users.index') }}" class="col mx-3 btn btn-secondary">Cancel</a>
+                <a role="button" href="{{ url_for('admin.users.index') }}" class="col mx-3 btn btn-secondary">Abbrechen</a>
             </div>
         </form>
     </div>

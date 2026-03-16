@@ -32,6 +32,18 @@ class Config:
     FAVORITES_DISPLAY: int = int(os.environ.get('FAVORITES_DISPLAY', '3'))
     # Timespan (days) used to calculate favourite products
     FAVORITES_DAYS: int = int(os.environ.get('FAVORITES_DAYS', '100'))
+    # Minimum account balance in cents after a purchase (0 = no negative balance,
+    # negative values allow debt, e.g. -500 = up to 5 € debt)
+    MINIMUM_BALANCE_CENTS: int = int(os.environ.get('MINIMUM_BALANCE_CENTS', '0'))
+
+    # -------------------------------------------------------------------------
+    # Initial admin account
+    # Created on first start when no admin exists yet.
+    # If ADMIN_PASSWORD is empty, a random password is generated and printed to
+    # the console once.
+    # -------------------------------------------------------------------------
+    ADMIN_USERNAME: str = os.environ.get('ADMIN_USERNAME', 'admin')
+    ADMIN_PASSWORD: str = os.environ.get('ADMIN_PASSWORD', '')
 
     # -------------------------------------------------------------------------
     # RFID / Demo mode
