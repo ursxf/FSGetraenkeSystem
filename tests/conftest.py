@@ -1,27 +1,23 @@
 """Pytest configuration and shared fixtures."""
 
 import pytest
-from app import create_app
-from app.db import db as _db
-from app.db.models import User, Product, Revenue
-from app.helpers import calc_hash
+from app import create_app, db as _db
+from app.models import User, Drink, Transaction, AdminUser, RFIDTag
+from werkzeug.security import generate_password_hash
 
 
 class TestConfig:
-    SECRET_KEY = 'test-secret'
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SECRET_KEY = "test-secret"
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = False
     TESTING = True
+    ADMIN_USERNAME = "testadmin"
+    ADMIN_PASSWORD = "testpass"
     RFID_ENABLED = False
-    RFID_DEMO_UID = ''
-    TERMINAL_LOGOUT_TIMEOUT = None
-    QUICK_CANCEL_SEC = 60
-    FAVORITES_DISPLAY = 3
-    FAVORITES_DAYS = 100
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def app():
     """Create application configured for testing."""
     application = create_app(TestConfig)
@@ -31,42 +27,38 @@ def app():
         _db.drop_all()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def db(app):
     """Provide a clean DB for each test."""
     with app.app_context():
         yield _db
         _db.session.rollback()
+        # Clean tables
         for table in reversed(_db.metadata.sorted_tables):
             _db.session.execute(table.delete())
         _db.session.commit()
-        _seed_admin()
+        # Re-seed admin
+        if not AdminUser.query.filter_by(username="testadmin").first():
+            admin = AdminUser(
+                username="testadmin",
+                password_hash=generate_password_hash("testpass"),
+            )
+            _db.session.add(admin)
+            _db.session.commit()
 
 
-def _seed_admin():
-    """Create the default admin user if it does not exist yet."""
-    if not User.query.filter_by(name='testadmin').first():
-        admin = User(
-            name='testadmin',
-            pin=calc_hash('testpin'),
-            isop=True,
-        )
-        _db.session.add(admin)
-        _db.session.commit()
-
-
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def client(app, db):
     return app.test_client()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def auth_client(client, app):
     """A test client that is already logged in as admin."""
     with app.app_context():
         client.post(
-            '/login',
-            data={'username': 'testadmin', 'pin': 'testpin'},
+            "/admin/login",
+            data={"username": "testadmin", "password": "testpass"},
             follow_redirects=True,
         )
     return client
@@ -74,22 +66,18 @@ def auth_client(client, app):
 
 @pytest.fixture()
 def sample_user(db):
-    user = User(
-        name='Max Mustermann',
-        card=calc_hash('RFID001'),
-    )
-    _db.session.add(user)
-    _db.session.flush()
-    # Give them some balance via a revenue entry
-    rev = Revenue(user=user.id, product=None, amount=500)
-    _db.session.add(rev)
-    _db.session.commit()
+    user = User(name="Max Mustermann", balance_cents=500)
+    db.session.add(user)
+    db.session.flush()
+    tag = RFIDTag(uid="RFID001", user_id=user.id)
+    db.session.add(tag)
+    db.session.commit()
     return user
 
 
 @pytest.fixture()
-def sample_product(db):
-    product = Product(name='Club Mate', price=150, visible=True)
-    _db.session.add(product)
-    _db.session.commit()
-    return product
+def sample_drink(db):
+    drink = Drink(name="Club Mate", price_cents=150, active=True)
+    db.session.add(drink)
+    db.session.commit()
+    return drink

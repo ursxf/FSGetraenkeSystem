@@ -1,75 +1,51 @@
 """Tests for database models."""
 
 import pytest
-from app.db.models import User, Product, Revenue
-from app.db.helpers import get_balance
-from app.helpers import calc_hash, format_currency
+from app.models import User, Drink, Transaction
 
 
-def test_user_has_card_field(db):
-    user = User(name='Anna', card=calc_hash('MY_CARD_UID'))
-    _db = db
-    _db.session.add(user)
-    _db.session.commit()
-    assert user.card is not None
+def test_user_balance_property(db):
+    user = User(name="Anna", balance_cents=250)
+    assert user.balance_euro == pytest.approx(2.50)
 
 
-def test_user_isop_default_false(db):
-    user = User(name='Bob')
-    db.session.add(user)
-    db.session.commit()
-    assert user.isop is False
+def test_user_negative_balance(db):
+    user = User(name="Bob", balance_cents=-100)
+    assert user.balance_euro == pytest.approx(-1.00)
 
 
-def test_product_has_price(db):
-    product = Product(name='Club Mate', price=150)
-    db.session.add(product)
-    db.session.commit()
-    assert product.price == 150
+def test_drink_price_property(db):
+    drink = Drink(name="Club Mate", price_cents=150)
+    assert drink.price_euro == pytest.approx(1.50)
 
 
-def test_product_visible_default_true(db):
-    product = Product(name='Wasser', price=80)
-    db.session.add(product)
-    db.session.commit()
-    assert product.visible is True
-
-
-def test_revenue_balance_calculation(db):
-    user = User(name='Tester')
-    db.session.add(user)
+def test_transaction_amount_property(db):
+    # Test via a real persisted transaction
+    user = User(name="Tester", balance_cents=0)
+    drink = Drink(name="Wasser", price_cents=150)
+    db.session.add_all([user, drink])
     db.session.flush()
-    db.session.add(Revenue(user=user.id, product=None, amount=500))
-    product = Product(name='Wasser', price=150)
-    db.session.add(product)
-    db.session.flush()
-    db.session.add(Revenue(user=user.id, product=product.id, amount=-150))
+    tx = Transaction(
+        user_id=user.id,
+        drink_id=drink.id,
+        amount_cents=-150,
+        type=Transaction.PURCHASE,
+    )
+    db.session.add(tx)
     db.session.commit()
-    balance = get_balance(user.id)
-    assert balance == 350
+    assert tx.amount_euro == pytest.approx(-1.50)
 
 
-def test_revenue_age_property(db):
-    user = User(name='AgeTest')
-    db.session.add(user)
-    db.session.flush()
-    rev = Revenue(user=user.id, product=None, amount=100)
-    db.session.add(rev)
-    db.session.commit()
-    assert rev.age.total_seconds() >= 0
+def test_user_repr(db):
+    user = User(name="Alice", balance_cents=100)
+    assert "Alice" in repr(user)
 
 
-def test_format_currency():
-    assert format_currency(150) == '1,50 €'
-    assert format_currency(0) == '0,00 €'
-    assert format_currency(-100) == '-1,00 €'
+def test_drink_repr(db):
+    drink = Drink(name="Wasser", price_cents=80)
+    assert "Wasser" in repr(drink)
 
 
-def test_calc_hash_deterministic():
-    h1 = calc_hash('RFID_UID_123')
-    h2 = calc_hash('RFID_UID_123')
-    assert h1 == h2
-
-
-def test_calc_hash_different_inputs():
-    assert calc_hash('CARD_A') != calc_hash('CARD_B')
+def test_transaction_types():
+    assert Transaction.PURCHASE == "purchase"
+    assert Transaction.DEPOSIT == "deposit"

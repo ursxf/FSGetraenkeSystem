@@ -1,0 +1,32 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Admin – Anmelden{% endblock %}
+
+{% block body %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-dark">
+  <div class="card p-4" style="width: 360px;">
+    <div class="text-center mb-4">
+      <i class="bi bi-cup-straw fs-1 text-primary"></i>
+      <h4 class="mt-2 fw-bold">FS Getränkesystem</h4>
+      <p class="text-muted small">Admin-Bereich</p>
+    </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} py-2">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    <form method="post">
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        {{ form.username.label(class="form-label") }}
+        {{ form.username(class="form-control", placeholder="admin") }}
+      </div>
+      <div class="mb-3">
+        {{ form.password.label(class="form-label") }}
+        {{ form.password(class="form-control") }}
+      </div>
+      {{ form.submit(class="btn btn-primary w-100") }}
+    </form>
+  </div>
+</div>
+{% endblock %}

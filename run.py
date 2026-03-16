@@ -10,10 +10,12 @@ Or with gunicorn:
 import logging
 
 from app import create_app
+from config import log_startup_mode
 
 logging.basicConfig(level=logging.INFO)
 
 app = create_app()
+log_startup_mode()
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)
