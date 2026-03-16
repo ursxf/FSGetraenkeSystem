@@ -1,56 +1,73 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, IntegerField, BooleanField, SubmitField
-from wtforms.validators import DataRequired, Length, NumberRange, Optional, EqualTo
+from wtforms import BooleanField, DecimalField, IntegerField, PasswordField, StringField, SubmitField
+from wtforms.validators import InputRequired, Optional
 
 
-class LoginForm(FlaskForm):
-    username = StringField("Benutzername", validators=[DataRequired()])
-    password = PasswordField("Passwort", validators=[DataRequired()])
-    submit = SubmitField("Anmelden")
+class ProductForm(FlaskForm):
+    id = IntegerField(
+        label='ID',
+        render_kw={'placeholder': 'id', 'readonly': ''},
+    )
+    name = StringField(
+        label='Name',
+        validators=[InputRequired()],
+        render_kw={'placeholder': 'name'},
+    )
+    ean = IntegerField(
+        label='EAN',
+        validators=[Optional(strip_whitespace=True)],
+        render_kw={'placeholder': 'ean'},
+    )
+    price = IntegerField(
+        label='Price',
+        validators=[InputRequired()],
+        render_kw={'placeholder': 'price'},
+    )
+    visible = BooleanField(
+        label='Visible',
+    )
+    has_alc = BooleanField(
+        label='Has Alcohol',
+    )
+    is_food = BooleanField(
+        label='Is Food',
+    )
 
 
 class UserForm(FlaskForm):
-    name = StringField("Name", validators=[DataRequired(), Length(max=128)])
-    rfid_uid = StringField("RFID UID (erster Tag)", validators=[Optional(), Length(max=64)])
-    initial_balance_cents = IntegerField(
-        "Startguthaben (Cent)",
-        validators=[Optional()],
-        default=0,
+    id = IntegerField(
+        label='ID',
+        render_kw={'placeholder': 'id', 'readonly': ''},
     )
-    active = BooleanField("Aktiv", default=True)
-    submit = SubmitField("Speichern")
-
-
-class DrinkForm(FlaskForm):
-    name = StringField("Name", validators=[DataRequired(), Length(max=128)])
-    price_cents = IntegerField(
-        "Preis (Cent)",
-        validators=[DataRequired(), NumberRange(min=1, message="Preis muss größer als 0 sein.")],
+    name = StringField(
+        label='Name',
+        validators=[InputRequired()],
+        render_kw={'placeholder': 'name'},
     )
-    active = BooleanField("Aktiv", default=True)
-    submit = SubmitField("Speichern")
-
-
-class DepositForm(FlaskForm):
-    amount_cents = IntegerField(
-        "Betrag (Cent)",
-        validators=[DataRequired(), NumberRange(min=1, message="Betrag muss positiv sein.")],
+    card = StringField(
+        label='Card ID',
+        render_kw={'placeholder': 'Card ID'},
     )
-    note = StringField("Notiz", validators=[Optional(), Length(max=256)])
-    submit = SubmitField("Guthaben aufladen")
-
-
-class AdminUserForm(FlaskForm):
-    username = StringField("Benutzername", validators=[DataRequired(), Length(max=64)])
-    password = PasswordField("Passwort", validators=[DataRequired(), Length(min=8)])
-    submit = SubmitField("Admin erstellen")
-
-
-class ChangePasswordForm(FlaskForm):
-    current_password = PasswordField("Aktuelles Passwort", validators=[DataRequired()])
-    new_password = PasswordField("Neues Passwort", validators=[DataRequired(), Length(min=8)])
-    confirm_password = PasswordField(
-        "Neues Passwort bestätigen",
-        validators=[DataRequired(), EqualTo("new_password", message="Die neuen Passwörter stimmen nicht überein.")],
+    unset_card = BooleanField(
+        label='Unset Card',
     )
-    submit = SubmitField("Passwort ändern")
+    pin = PasswordField(
+        label='PIN',
+        render_kw={'placeholder': 'pin'},
+    )
+    unset_pin = BooleanField(
+        label='Unset PIN',
+    )
+    isop = BooleanField(
+        label='Admin',
+    )
+
+
+class BalanceForm(FlaskForm):
+    amount = DecimalField(
+        label='Amount',
+        validators=[InputRequired()],
+        render_kw={'placeholder': '0.00'},
+    )
+    recharge = SubmitField(label='Recharge')
+    charge = SubmitField(label='Charge')
