@@ -243,3 +243,91 @@ def test_api_scan_stream_keepalive_then_uid(app):
         body = response.data
     assert b": keepalive" in body
     assert b'"uid": "BEEFDEAD"' in body
+
+
+def test_purchase_blocked_when_balance_insufficient(client, db, sample_drink, app):
+    """Purchase is rejected when the resulting balance would fall below MINIMUM_BALANCE_CENTS."""
+    app.config["MINIMUM_BALANCE_CENTS"] = 0
+    try:
+        poor_user = User(name="Poor User", balance_cents=sample_drink.price_cents - 1)
+        db.session.add(poor_user)
+        db.session.flush()
+        db.session.add(RFIDTag(uid="POORUSER001", user_id=poor_user.id))
+        db.session.commit()
+        poor_user_id = poor_user.id
+
+        client.post("/scan", data={"uid": "POORUSER001"})
+        response = client.post(f"/purchase/{sample_drink.id}", follow_redirects=True)
+        assert response.status_code == 200
+        assert "Nicht genügend Guthaben".encode() in response.data
+        # Balance must not have been changed.
+        with app.app_context():
+            user = _db.session.get(User, poor_user_id)
+            assert user.balance_cents == sample_drink.price_cents - 1
+    finally:
+        app.config.pop("MINIMUM_BALANCE_CENTS", None)
+
+
+def test_purchase_allowed_when_balance_exactly_meets_minimum(client, db, sample_drink, app):
+    """Purchase succeeds when the resulting balance equals MINIMUM_BALANCE_CENTS exactly."""
+    app.config["MINIMUM_BALANCE_CENTS"] = 0
+    try:
+        exact_user = User(name="Exact User", balance_cents=sample_drink.price_cents)
+        db.session.add(exact_user)
+        db.session.flush()
+        db.session.add(RFIDTag(uid="EXACTUSER001", user_id=exact_user.id))
+        db.session.commit()
+        exact_user_id = exact_user.id
+
+        client.post("/scan", data={"uid": "EXACTUSER001"})
+        response = client.post(f"/purchase/{sample_drink.id}", follow_redirects=True)
+        assert response.status_code == 200
+        assert sample_drink.name.encode() in response.data
+        with app.app_context():
+            user = _db.session.get(User, exact_user_id)
+            assert user.balance_cents == 0
+    finally:
+        app.config.pop("MINIMUM_BALANCE_CENTS", None)
+
+
+def test_purchase_allowed_with_negative_minimum(client, db, sample_drink, app):
+    """When MINIMUM_BALANCE_CENTS allows debt, purchases into negative balance succeed."""
+    app.config["MINIMUM_BALANCE_CENTS"] = -500
+    try:
+        zero_user = User(name="Zero User", balance_cents=0)
+        db.session.add(zero_user)
+        db.session.flush()
+        db.session.add(RFIDTag(uid="ZEROUSER001", user_id=zero_user.id))
+        db.session.commit()
+        zero_user_id = zero_user.id
+
+        client.post("/scan", data={"uid": "ZEROUSER001"})
+        response = client.post(f"/purchase/{sample_drink.id}", follow_redirects=True)
+        assert response.status_code == 200
+        assert sample_drink.name.encode() in response.data
+        with app.app_context():
+            user = _db.session.get(User, zero_user_id)
+            assert user.balance_cents == -sample_drink.price_cents
+    finally:
+        app.config.pop("MINIMUM_BALANCE_CENTS", None)
+
+
+def test_select_drink_marks_unaffordable(client, db, app):
+    """Drinks the user cannot afford are rendered with the disabled attribute."""
+    app.config["MINIMUM_BALANCE_CENTS"] = 0
+    try:
+        broke_user = User(name="Broke User", balance_cents=10)
+        db.session.add(broke_user)
+        db.session.flush()
+        db.session.add(RFIDTag(uid="BROKEUSER001", user_id=broke_user.id))
+        expensive = Drink(name="Champagner", price_cents=99999, active=True)
+        db.session.add(expensive)
+        db.session.commit()
+
+        client.post("/scan", data={"uid": "BROKEUSER001"})
+        response = client.get("/select")
+        assert response.status_code == 200
+        assert b"disabled" in response.data
+        assert b"Champagner" in response.data
+    finally:
+        app.config.pop("MINIMUM_BALANCE_CENTS", None)

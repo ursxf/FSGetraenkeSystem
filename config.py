@@ -44,6 +44,17 @@ class Config:
     ADMIN_PASSWORD: str = os.environ.get("ADMIN_PASSWORD", "")
 
     # -------------------------------------------------------------------------
+    # Kiosk purchase rules
+    #
+    # MINIMUM_BALANCE_CENTS controls how low a user's balance may fall after a
+    # purchase.  Set to 0 (default) to disallow negative balance entirely.
+    # Set to e.g. -500 to allow users to go up to 5 € into debt.
+    # -------------------------------------------------------------------------
+    MINIMUM_BALANCE_CENTS: int = int(
+        os.environ.get("MINIMUM_BALANCE_CENTS", "0")
+    )
+
+    # -------------------------------------------------------------------------
     # RFID / Demo mode
     #
     # RFID_ENABLED=false  →  Demo-Modus (Standard)
